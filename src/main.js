@@ -262,6 +262,7 @@ Guidelines:
 - Use proper heading hierarchy (# ## ###)
 - Make content scannable with bullet points and formatting
 - Preserve all important information from the source
+- Do not include any introductory text or explanations. No additinal text.
 
 Page Information:
 - Title: ${pageInfo.title}
