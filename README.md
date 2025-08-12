@@ -31,7 +31,7 @@ This web app lets you paste a public Google Docs link and converts the document 
 
 ### Prerequisites
 
-- OpenAI API key (set as environment variable `OPENAI_API_KEY`)  
+- OpenAI API key (set as environment variable `VITE_API_KEY`)  
 
 
 ### Installation
