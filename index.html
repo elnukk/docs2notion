@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Docs2Notion</title>
+    <link rel="stylesheet" href="./src/style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📄 → 🔗 Docs2Notion</h1>
+            <p>Transform your Google Docs into beautiful Notion workspaces with AI-enhanced formatting</p>
+        </div>
+        <li><a href="https://docs.google.com/document/d/1MqVyIaWTEPpvM0SWJs0Qsp_lr_BU_BhfkPVhoxTTEPc/edit?usp=sharing">Sample
+                Document - Product Spec</a></li>
+        <br>
+        <li><a href="https://docs.google.com/document/d/1uk5nJ587iTaOcKBm3tVUKY-AmKmg13Ni4wjQIgoGTjU/edit?usp=sharing">Sample
+                Document - Onboarding Guides (AI-Generated)</a></li>
+        <br>
+        <li><a href="https://docs.google.com/document/d/1iilaYmQCuP47kCaUu9-AU0iYbgHfZu3dvfQFfJG3vRU/edit?usp=sharing">Sample
+                Document - My Favorites</a></li>
+
+
+        <form id="conversionForm">
+            <div class="form-group">
+                <label for="docUrl">Google Docs Share Link</label>
+                <input type="url" id="docUrl" name="docUrl" placeholder="https://docs.google.com/document/d/..."
+                    required>
+            </div>
+
+            <button type="submit" class="generate-btn" id="generateBtn">
+                <div class="spinner" id="spinner"></div>
+                <span id="btnText">🚀 Generate Workspace</span>
+            </button>
+        </form>
+
+        <div class="progress-bar" id="progressBar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+
+        <div class="status" id="status"></div>
+
+        <div class="features">
+            <h3>🎯 What you'll get:</h3>
+            <ul>
+                <li>Separate Markdown files for each major section</li>
+                <li>AI-enhanced formatting with callouts and toggles</li>
+                <li>Notion-ready tables and bullet points</li>
+                <li>Clean structure perfect for workspace import</li>
+                <li>Preserves links, formatting, and hierarchy</li>
+            </ul>
+        </div>
+    </div>
+
+    <script type="module" src="./src/main.js"></script>
+</body>
+
+</html>
