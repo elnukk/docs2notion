@@ -29,7 +29,6 @@ class DocsToNotionConverter {
             this.processDocument();
         });
 
-        // Handle radio button changes to update UI
         const radioButtons = document.querySelectorAll('input[name="sourceType"]');
         radioButtons.forEach(radio => {
             radio.addEventListener('change', () => {
@@ -37,71 +36,46 @@ class DocsToNotionConverter {
             });
         });
 
-        // Initialize Google API
         await this.initializeGoogleAPI();
     }
 
     async initializeGoogleAPI() {
         try {
-            console.log('🔧 Starting Google API initialization...');
-            console.log('CLIENT_ID:', this.CLIENT_ID);
-            console.log('API_KEY:', this.API_KEY ? 'Present' : 'Missing');
-            
             if (!this.CLIENT_ID) {
-                console.log('CLIENT_ID missing');
                 this.showConfigurationWarning();
                 return;
             }
 
             if (!this.API_KEY) {
-                console.log('API_KEY missing');
                 this.showStatus('API Key is missing from configuration', 'error');
                 return;
             }
 
             this.showStatus('🔧 Initializing Google API...', 'processing');
             
-            console.log('📡 Loading gapi client...');
             await new Promise((resolve, reject) => {
                 gapi.load('client', {
-                    callback: () => {
-                        console.log('gapi.client loaded successfully');
-                        resolve();
-                    },
-                    onerror: () => {
-                        console.error('Failed to load gapi.client');
-                        reject(new Error('Failed to load gapi.client'));
-                    }
+                    callback: resolve,
+                    onerror: () => reject(new Error('Failed to load gapi.client'))
                 });
             });
 
-            console.log('🔧 Initializing gapi.client...');
-            
-            // Try with discovery docs first, fallback to manual initialization
             try {
                 await gapi.client.init({
                     apiKey: this.API_KEY,
                     discoveryDocs: this.DISCOVERY_DOCS
                 });
-                console.log('✅ Discovery docs loaded successfully');
             } catch (discoveryError) {
-                console.log('⚠️ Discovery docs failed, using fallback method:', discoveryError.message);
-                
-                // Fallback: Initialize without discovery docs and manually set up APIs
                 await gapi.client.init({
                     apiKey: this.API_KEY
                 });
-                
-                // Manually set up the APIs we need
                 this.setupManualAPIs();
             }
 
-            console.log('Initializing Google Identity Services...');
             this.tokenClient = google.accounts.oauth2.initTokenClient({
                 client_id: this.CLIENT_ID,
                 scope: this.SCOPES,
                 callback: (response) => {
-                    console.log('✅ Token received:', response);
                     if (response.access_token) {
                         gapi.client.setToken(response);
                         this.isSignedIn = true;
@@ -110,21 +84,15 @@ class DocsToNotionConverter {
                 },
             });
 
-            console.log('Google API initialized successfully');
             this.showStatus('Google API initialized', 'success');
             setTimeout(() => this.hideStatus(), 2000);
 
         } catch (error) {
-            console.error('Google API initialization failed:', error);
-            console.error('Error details:', error.message);
-            console.error('Error stack:', error.stack);
             this.showStatus(`Failed to initialize Google API: ${error.message}`, 'error');
         }
     }
 
     setupManualAPIs() {
-        console.log('🔧 Setting up manual API endpoints...');
-        
         if (!gapi.client.drive) {
             gapi.client.drive = {};
         }
@@ -142,47 +110,33 @@ class DocsToNotionConverter {
             if (params.pageSize) queryParams.append('pageSize', params.pageSize);
             
             const url = `https://www.googleapis.com/drive/v3/files?${queryParams.toString()}`;
-            
-            // Get current token
             const token = gapi.client.getToken();
+            
             if (!token || !token.access_token) {
                 throw new Error('No access token available for Drive API request');
             }
             
-            // Use fetch with explicit Authorization header 
-            try {
-                const response = await fetch(url, {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${token.access_token}`,
-                        'Content-Type': 'application/json',
-                    }
-                });
-                
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(`Drive API error: ${response.status} ${response.statusText} - ${errorData.error?.message || 'Unknown error'}`);
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token.access_token}`,
+                    'Content-Type': 'application/json',
                 }
-                
-                const data = await response.json();
-                
-                // Return in gapi format
-                return {
-                    result: data,
-                    status: response.status,
-                    statusText: response.statusText
-                };
-            } catch (error) {
-                console.error('Manual Drive API request failed:', error);
-                // Fallback to gapi.client.request
-                return gapi.client.request({
-                    path: url,
-                    method: 'GET'
-                });
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(`Drive API error: ${response.status} ${response.statusText} - ${errorData.error?.message || 'Unknown error'}`);
             }
+            
+            const data = await response.json();
+            
+            return {
+                result: data,
+                status: response.status,
+                statusText: response.statusText
+            };
         };
-        
-        console.log('✅ Manual API setup complete');
     }
 
     showConfigurationWarning() {
@@ -231,7 +185,6 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
             <p style="margin-top: 12px;"><small>Once enabled, you'll be able to process entire Google Drive folders containing multiple documents.</small></p>
         `;
         
-        // Clear existing status content and add the new error
         this.status.innerHTML = '';
         this.status.appendChild(errorDiv);
         this.status.className = 'status error';
@@ -244,14 +197,10 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
                 throw new Error('Token client not initialized');
             }
             
-            console.log('🔑 Requesting access token...');
-            
             return new Promise((resolve, reject) => {
-                // Store the original callback
                 const originalCallback = this.tokenClient.callback;
                 
                 this.tokenClient.callback = (response) => {
-                    console.log('Token received:', response);
                     if (response.access_token) {
                         gapi.client.setToken(response);
                         this.isSignedIn = true;
@@ -262,14 +211,12 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
                         reject(new Error('Authentication failed'));
                     }
                     
-                    // Restore original callback
                     this.tokenClient.callback = originalCallback;
                 };
                 
                 this.tokenClient.requestAccessToken();
             });
         } catch (error) {
-            console.error('Sign in failed:', error);
             this.showStatus('Sign in failed', 'error');
             return false;
         }
@@ -313,7 +260,6 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
             this.showProgress(0);
 
             if (sourceType === 'drive-folder') {
-                // Folder processing requires Google API
                 if (!this.CLIENT_ID || !gapi.client) {
                     throw new Error('Google API configuration is required for folder processing. Please set up your Google API credentials.');
                 }
@@ -321,7 +267,6 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
                 await this.processFolderWithGoogleAPI(folderId);
             } else {
                 const docId = this.extractDocId(docUrl);
-                // Check if we can use Google API
                 if (this.CLIENT_ID && gapi.client) {
                     await this.processWithGoogleAPI(docId);
                 } else {
@@ -330,8 +275,6 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
             }
 
         } catch (error) {
-            console.error('Conversion error:', error);
-            
             if (error.message === 'DRIVE_API_NOT_ENABLED') {
                 this.showDriveApiNotEnabledError();
             } else {
@@ -347,10 +290,8 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
         this.showStatus('Authenticating with Google...', 'processing');
         this.showProgress(10);
 
-        // Always try to sign in first to ensure we have access
         if (!this.isSignedIn) {
             await this.signIn();
-            // Wait a moment for the token to be processed
             await new Promise(resolve => setTimeout(resolve, 1000));
             
             if (!this.isSignedIn) {
@@ -361,95 +302,24 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
         this.showStatus('Fetching document via Google Docs API...', 'processing');
         this.showProgress(30);
 
-        // Fetch document using Google Docs API
-        console.log('Requesting document with multiple approaches...');
-        
-        let response, doc;
-        
+        let response;
         try {
-            // Method 1: Try with explicit tab inclusion
-            console.log('Method 1: Trying includeTabsContent...');
             response = await gapi.client.request({
                 path: `https://docs.googleapis.com/v1/documents/${docId}`,
                 method: 'GET',
-                params: {
-                    includeTabsContent: true
-                }
+                params: { includeTabsContent: true }
             });
-            doc = response.result;
-            console.log('📄 Method 1 response:', doc);
-        } catch (error1) {
-            console.log('⚠️ Method 1 failed:', error1);
-            
-            try {
-                // Method 2: Try with different field specification
-                console.log('🔍 Method 2: Trying explicit fields...');
-                response = await gapi.client.docs.documents.get({
-                    documentId: docId,
-                    fields: '*'
-                });
-                doc = response.result;
-                console.log('📄 Method 2 response:', doc);
-            } catch (error2) {
-                console.log('⚠️ Method 2 failed:', error2);
-                
-                try {
-                    // Method 3: Try direct API call with tabs parameter
-                    console.log('🔍 Method 3: Direct API with tabs...');
-                    response = await gapi.client.request({
-                        path: `https://docs.googleapis.com/v1/documents/${docId}?fields=*`,
-                        method: 'GET'
-                    });
-                    doc = response.result;
-                    console.log('📄 Method 3 response:', doc);
-                } catch (error3) {
-                    console.log('⚠️ Method 3 failed:', error3);
-                    
-                    // Method 4: Fallback to standard request
-                    console.log('🔍 Method 4: Standard fallback...');
-                    response = await gapi.client.docs.documents.get({
-                        documentId: docId
-                    });
-                    doc = response.result;
-                    console.log('📄 Method 4 response:', doc);
-                }
-            }
-        }
-        
-        // Debug: Log the document structure
-        console.log('📄 Full document structure:', doc);
-        console.log('📑 Document tabs:', doc.tabs);
-        console.log('📑 Tabs type:', typeof doc.tabs);
-        console.log('📑 Tabs is array:', Array.isArray(doc.tabs));
-        console.log('📑 Number of tabs:', doc.tabs ? doc.tabs.length : 'No tabs property');
-        console.log('📄 Document body:', doc.body);
-        console.log('📄 Document title:', doc.title);
-        
-        // Log all top-level properties
-        console.log('All document properties:', Object.keys(doc));
-        
-        // Log each tab individually if they exist
-        if (doc.tabs && Array.isArray(doc.tabs) && doc.tabs.length > 0) {
-            console.log(`🔍 Processing ${doc.tabs.length} tabs:`);
-            doc.tabs.forEach((tab, index) => {
-                console.log(`📑 Tab ${index + 1}:`, tab);
-                console.log(`📑 Tab ${index + 1} properties:`, Object.keys(tab));
-                console.log(`📑 Tab ${index + 1} title:`, tab.tabProperties?.title);
-                console.log(`📑 Tab ${index + 1} has documentTab:`, !!tab.documentTab);
-                console.log(`📑 Tab ${index + 1} has body:`, !!tab.body);
-                if (tab.documentTab) {
-                    console.log(`📑 Tab ${index + 1} documentTab properties:`, Object.keys(tab.documentTab));
-                }
+        } catch (error) {
+            response = await gapi.client.docs.documents.get({
+                documentId: docId
             });
-        } else {
-            console.log('⚠️ No tabs array found in document');
-            console.log('📑 Raw tabs value:', doc.tabs);
         }
+
+        const doc = response.result;
         
         this.showStatus('Analyzing document structure...', 'processing');
         this.showProgress(50);
 
-        // Extract sections from the document
         const sections = this.extractSectionsFromGoogleDoc(doc);
         
         if (sections.length === 0) {
@@ -459,7 +329,6 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
         this.showStatus(`Creating ${sections.length} Notion pages...`, 'processing');
         this.showProgress(70);
 
-        // Create Notion pages from sections
         const notionPages = this.createNotionPagesFromSections(sections);
 
         this.showStatus('Creating workspace bundle...', 'processing');
@@ -475,21 +344,10 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
 
     async listDocsInFolder(folderId) {
         try {
-            console.log(`📁 Listing documents in folder: ${folderId}`);
-            
-            // Check authentication status
-            console.log('Current auth status:', this.isSignedIn);
-            console.log('Current token:', gapi.client.getToken());
-            
             if (!this.isSignedIn || !gapi.client.getToken()) {
                 throw new Error('Authentication required. Please sign in to access Drive folders.');
             }
             
-            // Debug: Check if gapi.client.drive is available
-            console.log('gapi.client.drive available:', !!gapi.client.drive);
-            console.log('gapi.client.drive.files available:', !!gapi.client.drive?.files);
-            
-            // Prepare query parameters
             const queryParams = {
                 q: `'${folderId}' in parents and mimeType='application/vnd.google-apps.document' and trashed=false`,
                 fields: 'files(id,name,createdTime)',
@@ -497,98 +355,51 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
             };
             
             let response;
-            try {
-                // Method 1: Try using gapi.client.drive.files.list (works with both discovery and manual setup)
-                if (gapi.client.drive && gapi.client.drive.files && gapi.client.drive.files.list) {
-                    console.log('Using gapi.client.drive.files.list method');
-                    response = await gapi.client.drive.files.list(queryParams);
-                    console.log('Method 1 response:', response);
-                } else {
-                    throw new Error('drive.files.list not available');
+            if (gapi.client.drive && gapi.client.drive.files && gapi.client.drive.files.list) {
+                response = await gapi.client.drive.files.list(queryParams);
+            } else {
+                const token = gapi.client.getToken();
+                if (!token || !token.access_token) {
+                    throw new Error('No valid access token available. Please sign in again.');
                 }
-            } catch (error1) {
-                console.log('Method 1 failed, trying direct request:', error1);
                 
-                // Method 2: Direct API request with manual URL construction
                 const urlParams = new URLSearchParams();
                 Object.entries(queryParams).forEach(([key, value]) => {
                     urlParams.append(key, value);
                 });
                 
-                // Get the current access token
-                const token = gapi.client.getToken();
-                console.log('Current token for request:', token);
-                
-                if (!token || !token.access_token) {
-                    throw new Error('No valid access token available. Please sign in again.');
-                }
-                
                 const apiUrl = `https://www.googleapis.com/drive/v3/files?${urlParams.toString()}`;
-                console.log('Making direct request to:', apiUrl);
-                
-                // Method 2a: Try with gapi.client.request (should include token automatically)
-                try {
-                    response = await gapi.client.request({
-                        path: apiUrl,
-                        method: 'GET'
-                    });
-                    console.log('Method 2a response:', response);
-                } catch (error2a) {
-                    console.log('Method 2a failed, trying with explicit headers:', error2a);
-                    
-                    // Method 2b: Try with explicit Authorization header using fetch
-                    try {
-                        const fetchResponse = await fetch(apiUrl, {
-                            method: 'GET',
-                            headers: {
-                                'Authorization': `Bearer ${token.access_token}`,
-                                'Content-Type': 'application/json',
-                            }
-                        });
-                        
-                        console.log('Fetch response status:', fetchResponse.status);
-                        
-                        if (!fetchResponse.ok) {
-                            const errorText = await fetchResponse.text();
-                            console.error('Fetch error response:', errorText);
-                            
-                            // Check for specific Drive API not enabled error
-                            if (fetchResponse.status === 403 && errorText.includes('Drive API has not been used')) {
-                                throw new Error('DRIVE_API_NOT_ENABLED');
-                            }
-                            
-                            throw new Error(`API request failed: ${fetchResponse.status} ${fetchResponse.statusText}`);
-                        }
-                        
-                        const responseData = await fetchResponse.json();
-                        console.log('Method 2b (fetch) response data:', responseData);
-                        
-                        // Convert fetch response to gapi-like format
-                        response = {
-                            result: responseData,
-                            status: fetchResponse.status,
-                            statusText: fetchResponse.statusText
-                        };
-                    } catch (error2b) {
-                        console.error('Method 2b (fetch) also failed:', error2b);
-                        throw error2b;
+                const fetchResponse = await fetch(apiUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token.access_token}`,
+                        'Content-Type': 'application/json',
                     }
+                });
+                
+                if (!fetchResponse.ok) {
+                    const errorText = await fetchResponse.text();
+                    
+                    if (fetchResponse.status === 403 && errorText.includes('Drive API has not been used')) {
+                        throw new Error('DRIVE_API_NOT_ENABLED');
+                    }
+                    
+                    throw new Error(`API request failed: ${fetchResponse.status} ${fetchResponse.statusText}`);
                 }
+                
+                const responseData = await fetchResponse.json();
+                response = {
+                    result: responseData,
+                    status: fetchResponse.status,
+                    statusText: fetchResponse.statusText
+                };
             }
 
-            // Check if we got a 403 error and provide helpful message
             if (response.status === 403) {
-                console.error('403 Forbidden error - likely authentication issue');
                 const errorBody = response.body ? JSON.parse(response.body) : response.result;
-                console.error('Error details:', errorBody);
                 throw new Error('Access denied. Please ensure you have signed in and the folder is shared with your account.');
             }
-
-            console.log('Full response object:', response);
-            console.log('Response result:', response.result);
-            console.log('Response body:', response.body);
             
-            // Handle different response formats
             let files = [];
             if (response && response.result) {
                 if (response.result.files) {
@@ -596,39 +407,20 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
                 } else if (Array.isArray(response.result)) {
                     files = response.result;
                 }
-            } else if (response && response.body) {
-                // Sometimes the response is in body as JSON string
-                try {
-                    const bodyData = typeof response.body === 'string' ? JSON.parse(response.body) : response.body;
-                    files = bodyData.files || [];
-                } catch (parseError) {
-                    console.error('Failed to parse response body:', parseError);
-                }
             }
 
-            console.log(`📄 Found ${files.length} Google Docs in folder`);
-            console.log('Files found:', files);
-            
             if (!Array.isArray(files)) {
                 throw new Error('Invalid response format: files is not an array');
             }
             
             return files;
         } catch (error) {
-            console.error('Error listing folder contents:', error);
-            console.error('Error details:', {
-                message: error.message,
-                status: error.status,
-                result: error.result
-            });
-            
-            // Provide more specific error messages based on the error type
             if (error.message === 'DRIVE_API_NOT_ENABLED') {
                 throw new Error('DRIVE_API_NOT_ENABLED');
             } else if (error.message && error.message.includes('Authentication required')) {
-                throw error; // Re-throw authentication errors as-is
+                throw error;
             } else if (error.message && error.message.includes('Access denied')) {
-                throw error; // Re-throw access errors as-is
+                throw error;
             } else {
                 throw new Error(`Unable to access folder. Please ensure the folder is shared and you have access: ${error.message || 'Unknown error'}`);
             }
@@ -639,27 +431,18 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
         this.showStatus('Authenticating with Google...', 'processing');
         this.showProgress(10);
 
-        // Always try to sign in first to ensure we have access
         if (!this.isSignedIn || !gapi.client.getToken()) {
-            console.log('🔑 Starting authentication for Drive access...');
             const signInSuccess = await this.signIn();
             await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            // Double-check authentication status
-            console.log('Post-auth status:', this.isSignedIn);
-            console.log('Post-auth token:', !!gapi.client.getToken());
             
             if (!this.isSignedIn || !gapi.client.getToken()) {
                 throw new Error('Authentication required to access Google Drive. Please sign in when prompted.');
             }
         }
 
-        console.log('✅ Authentication confirmed, proceeding with folder access...');
-
         this.showStatus('Listing documents in folder...', 'processing');
         this.showProgress(20);
 
-        // Get list of Google Docs in the folder
         const docs = await this.listDocsInFolder(folderId);
         
         if (docs.length === 0) {
@@ -669,25 +452,19 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
         this.showStatus(`Processing ${docs.length} documents...`, 'processing');
         this.showProgress(30);
 
-        // Process each document
         const allSections = [];
-        const progressStep = 60 / docs.length; // Reserve 60% for document processing
+        const progressStep = 60 / docs.length;
         
         for (let i = 0; i < docs.length; i++) {
             const doc = docs[i];
-            console.log(`📄 Processing document ${i + 1}/${docs.length}: ${doc.name}`);
             
             this.showStatus(`Processing "${doc.name}" (${i + 1}/${docs.length})...`, 'processing');
             this.showProgress(30 + (i * progressStep));
 
             try {
                 const docSections = await this.processDocumentById(doc.id, doc.name);
-                console.log(`✅ Document "${doc.name}" processed successfully, got ${docSections.length} sections`);
-                console.log('Sections from this doc:', docSections.map(s => s.title));
                 
-                // If document has no sections (empty or no headers), create a default one
                 if (docSections.length === 0) {
-                    console.log(`⚠️ Document "${doc.name}" has no sections, creating default section`);
                     allSections.push({
                         title: doc.name,
                         content: `This document appears to be empty or contains no recognizable content.`,
@@ -699,8 +476,6 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
                     allSections.push(...docSections);
                 }
             } catch (error) {
-                console.error(`Failed to process document "${doc.name}":`, error);
-                // Continue with other documents but log the error
                 allSections.push({
                     title: `Error - ${doc.name}`,
                     content: `Failed to process this document: ${error.message}\n\nThis could be due to:\n- Document access restrictions\n- Document format not supported\n- Network connectivity issues\n\nPlease check the document permissions and try again.`,
@@ -711,9 +486,6 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
             }
         }
 
-        console.log(`📊 Total sections collected from all documents: ${allSections.length}`);
-        console.log('All sections:', allSections.map(s => `${s.sourceDocument}: ${s.title}`));
-
         if (allSections.length === 0) {
             throw new Error('No content sections found in any of the documents');
         }
@@ -721,7 +493,6 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
         this.showStatus(`Creating ${allSections.length} Notion pages...`, 'processing');
         this.showProgress(90);
 
-        // Create Notion pages from sections
         const notionPages = this.createNotionPagesFromSections(allSections);
 
         this.showStatus('Creating workspace bundle...', 'processing');
@@ -736,67 +507,28 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
     }
 
     async processDocumentById(docId, docName = null) {
-        console.log(`📄 Processing document: ${docId} (${docName || 'Unknown'})`);
-        
-        // Fetch document using Google Docs API (similar to existing processWithGoogleAPI)
-        let response, doc;
+        let response;
         
         try {
-            console.log('Fetching document with Google Docs API...');
             response = await gapi.client.request({
                 path: `https://docs.googleapis.com/v1/documents/${docId}`,
                 method: 'GET',
-                params: {
-                    includeTabsContent: true
-                }
+                params: { includeTabsContent: true }
             });
-            doc = response.result;
-            console.log(`✅ Document fetched successfully: "${doc.title}"`);
-        } catch (error1) {
-            console.log('Method 1 failed, trying method 2...');
-            try {
-                response = await gapi.client.docs.documents.get({
-                    documentId: docId,
-                    fields: '*'
-                });
-                doc = response.result;
-                console.log(`✅ Document fetched with method 2: "${doc.title}"`);
-            } catch (error2) {
-                console.log('Method 2 failed, trying method 3...');
-                try {
-                    response = await gapi.client.request({
-                        path: `https://docs.googleapis.com/v1/documents/${docId}?fields=*`,
-                        method: 'GET'
-                    });
-                    doc = response.result;
-                    console.log(`✅ Document fetched with method 3: "${doc.title}"`);
-                } catch (error3) {
-                    console.log('Method 3 failed, trying final method...');
-                    response = await gapi.client.docs.documents.get({
-                        documentId: docId
-                    });
-                    doc = response.result;
-                    console.log(`✅ Document fetched with final method: "${doc.title}"`);
-                }
-            }
+        } catch (error) {
+            response = await gapi.client.docs.documents.get({
+                documentId: docId
+            });
         }
 
-        console.log(`📊 Document structure for "${doc.title}":`);
-        console.log(`- Has tabs: ${!!doc.tabs}`);
-        console.log(`- Has body: ${!!doc.body}`);
-        console.log(`- Tab count: ${doc.tabs ? doc.tabs.length : 0}`);
-
-        // Extract sections from the document
+        const doc = response.result;
         const sections = this.extractSectionsFromGoogleDoc(doc);
-        console.log(`📄 Extracted ${sections.length} sections from "${doc.title}"`);
         
-        // Add source document info to each section
         const finalDocName = docName || doc.title || `Document ${docId}`;
         sections.forEach(section => {
             section.sourceDocument = finalDocName;
         });
         
-        console.log(`✅ Document "${finalDocName}" processing complete with ${sections.length} sections`);
         return sections;
     }
 
@@ -813,7 +545,6 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
 
         this.showProgress(50);
 
-        // docContent should be an array of sections
         if (!Array.isArray(docContent)) {
             throw new Error('Content parsing failed - expected sections array');
         }
@@ -838,69 +569,42 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
 
     extractSectionsFromGoogleDoc(doc) {
         const sections = [];
-        
-        console.log('Processing document structure...');
-        console.log('Document has tabs:', !!doc.tabs);
-        console.log('Document has body:', !!doc.body);
 
         if (doc.tabs && doc.tabs.length > 0) {
-            console.log('Found tabs - checking for child tabs...');
-            
-            // Collect all tabs (main tabs + child tabs)
             const allTabs = [];
             
             for (const mainTab of doc.tabs) {
-                // Add the main tab
                 allTabs.push(mainTab);
-                
-                // Add any child tabs
                 if (mainTab.childTabs && mainTab.childTabs.length > 0) {
-                    console.log(`Found ${mainTab.childTabs.length} child tabs for "${mainTab.tabProperties?.title}"`);
                     allTabs.push(...mainTab.childTabs);
                 }
             }
             
-            console.log(`Total tabs to process: ${allTabs.length}`);
-            
-            // Process all tabs
             for (let tabIndex = 0; tabIndex < allTabs.length; tabIndex++) {
                 const tab = allTabs[tabIndex];
-                const tabTitle = tab.tabProperties?.title || `Tab ${tabIndex + 1}`;
-                console.log(`Processing tab ${tabIndex + 1}: ${tabTitle}`);
-                
-                // Pass document title for better naming of single-tab documents
                 const tabSections = this.extractSectionsFromTab(tab, tabIndex, doc.title);
                 sections.push(...tabSections);
             }
         } else if (doc.body) {
-            console.log('Processing single-tab document');
             const bodySections = this.extractSectionsFromBody(doc.body, doc.title || 'Document');
             sections.push(...bodySections);
         }
 
-        console.log('Total sections extracted:', sections.length);
         return sections;
     }
 
     extractSectionsFromTab(tab, tabIndex, documentTitle = null) {
         const tabTitle = tab.tabProperties?.title || `Tab ${tabIndex + 1}`;
-        console.log(`Processing tab: ${tabTitle}`);
-        console.log(`Tab structure:`, tab);
         
-        // Check different possible structures
         let body = null;
         if (tab.documentTab && tab.documentTab.body) {
             body = tab.documentTab.body;
-            console.log(`Found documentTab.body for ${tabTitle}`);
         } else if (tab.body) {
             body = tab.body;
-            console.log(`Found body for ${tabTitle}`);
         } else {
-            console.log(`⚠️ Tab ${tabTitle} has no accessible content. Tab structure:`, Object.keys(tab));
             return [];
         }
 
-        // For single-tab documents, use the document title instead of "Tab 1"
         const effectiveTabName = (tabTitle === 'Tab 1' && documentTitle) ? documentTitle : tabTitle;
         return this.extractSectionsFromBody(body, effectiveTabName);
     }
@@ -908,16 +612,12 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
     extractSectionsFromBody(body, parentName) {
         const sections = [];
         let currentSection = null;
-        let allContent = ''; // Track all content for fallback
+        let allContent = '';
 
         if (!body || !body.content) {
-            console.log(`⚠️ ${parentName} has no content`);
             return sections;
         }
 
-        console.log(`Processing ${body.content.length} elements in ${parentName}`);
-
-        // Process each structural element
         for (const element of body.content) {
             if (element.paragraph) {
                 const paragraph = element.paragraph;
@@ -925,10 +625,7 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
                 
                 if (!formattedText.trim()) continue;
 
-                // Track all content
                 allContent += formattedText + '\n';
-
-                // Check if this paragraph is a heading
                 const headingLevel = this.getHeadingLevel(paragraph);
                 
                 if (headingLevel > 0) {
@@ -943,10 +640,8 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
                         parentTab: parentName
                     };
                 } else if (currentSection) {
-                    // Add content to current section
                     currentSection.content += formattedText + '\n';
                 } else {
-                    // No current section, create default one
                     currentSection = {
                         title: parentName,
                         content: formattedText + '\n',
@@ -955,7 +650,6 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
                     };
                 }
             } else if (element.table) {
-                // Handle tables
                 const tableMarkdown = this.extractTableFromElement(element.table);
                 allContent += tableMarkdown + '\n\n';
                 
@@ -972,14 +666,11 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
             }
         }
 
-        // Add final section
         if (currentSection && currentSection.content.trim()) {
             sections.push(currentSection);
         }
 
-        // If no sections were created but we have content, create a default section
         if (sections.length === 0 && allContent.trim()) {
-            console.log(`⚠️ No headers found in ${parentName}, creating single section with all content`);
             sections.push({
                 title: parentName,
                 content: allContent.trim(),
@@ -988,40 +679,17 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
             });
         }
 
-        // If we only have one section and it's named after the tab, rename it to use the document name
         if (sections.length === 1 && sections[0].title === parentName && parentName.startsWith('Tab ')) {
-            // This is a single-tab document, use a more meaningful name
             const meaningfulName = sections[0].sourceDocument || parentName.replace('Tab ', 'Document ');
-            console.log(`📝 Renaming single tab "${sections[0].title}" to "${meaningfulName}"`);
             sections[0].title = meaningfulName;
         }
-
-        console.log(`✅ Extracted ${sections.length} sections from ${parentName}`);
-        sections.forEach((section, i) => {
-            console.log(`  Section ${i + 1}: "${section.title}" (${section.content.length} chars)`);
-        });
         
         return sections;
-    }
-
-    extractTextFromParagraph(paragraph) {
-        let text = '';
-        
-        if (paragraph.elements) {
-            for (const element of paragraph.elements) {
-                if (element.textRun && element.textRun.content) {
-                    text += element.textRun.content;
-                }
-            }
-        }
-        
-        return text;
     }
 
     extractFormattedTextFromParagraph(paragraph) {
         let formattedText = '';
         
-        // Check for bullet points
         const bullet = this.getBulletInfo(paragraph);
         if (bullet) {
             formattedText += bullet;
@@ -1032,7 +700,6 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
                 if (element.textRun && element.textRun.content) {
                     let text = element.textRun.content;
                     
-                    // Apply text formatting
                     if (element.textRun.textStyle) {
                         text = this.applyTextFormatting(text, element.textRun.textStyle);
                     }
@@ -1050,12 +717,9 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
             const listProperties = paragraph.bullet.listProperties;
             const nestingLevel = paragraph.bullet.nestingLevel || 0;
             
-            // Create appropriate bullet/number based on list type
             if (listProperties && listProperties.type === 'ORDERED') {
-                // For ordered lists, we'll use numbers (though we can't get exact number from API)
                 return '  '.repeat(nestingLevel) + '1. ';
             } else {
-                // For unordered lists, use bullets
                 return '  '.repeat(nestingLevel) + '- ';
             }
         }
@@ -1114,7 +778,6 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
                 
                 markdown += rowMarkdown + '\n';
                 
-                // Add header separator for first row
                 if (i === 0 && row.tableCells) {
                     let separator = '|';
                     for (let j = 0; j < row.tableCells.length; j++) {
@@ -1128,8 +791,21 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
         return markdown;
     }
 
+    extractTextFromParagraph(paragraph) {
+        let text = '';
+        
+        if (paragraph.elements) {
+            for (const element of paragraph.elements) {
+                if (element.textRun && element.textRun.content) {
+                    text += element.textRun.content;
+                }
+            }
+        }
+        
+        return text;
+    }
+
     getHeadingLevel(paragraph) {
-        // Check the paragraph style for heading information
         if (paragraph.paragraphStyle && paragraph.paragraphStyle.namedStyleType) {
             const styleType = paragraph.paragraphStyle.namedStyleType;
             
@@ -1159,10 +835,10 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
                 const pageContent = this.createNotionPageFromSection(section);
                 pages.push(pageContent);
             } catch (error) {
-                console.error(`Failed to create page "${section.title}":`, error);
                 pages.push({
                     title: section.title,
-                    content: `# ${section.title}\n\n${section.content}`
+                    content: `# ${section.title}\n\n${section.content}`,
+                    sourceDocument: section.sourceDocument
                 });
             }
         }
@@ -1171,24 +847,18 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
     }
 
     createNotionPageFromSection(section) {
-        // Convert to Notion-compatible markdown while preserving all original content
         let markdownContent = '';
         
-        // Add title with appropriate header level
         const headerPrefix = '#'.repeat(Math.min(section.level || 1, 6));
         markdownContent += `${headerPrefix} ${section.title}\n\n`;
         
-        // Tab information removed for cleaner output
-        
-        // Process the content to make it Notion-friendly while preserving everything
         let content = section.content.trim();
         
-        // Clean up excessive spacing while preserving line structure
         content = content
-            .replace(/\n{3,}/g, '\n\n')  // Max 2 consecutive newlines
-            .replace(/\.([A-Z])/g, '. $1')  // Add space after periods
-            .replace(/[ \t]{2,}/g, ' ')  // Remove excessive spaces
-            .trim();  // Remove leading/trailing whitespace
+            .replace(/\n{3,}/g, '\n\n')
+            .replace(/\.([A-Z])/g, '. $1')
+            .replace(/[ \t]{2,}/g, ' ')
+            .trim();
 
         markdownContent += content;
 
@@ -1210,7 +880,6 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
         pages.forEach((page, index) => {
             if (!page.title || page.title.trim() === '') return;
 
-            // Use header name as the main filename
             const cleanTitle = page.title
                 .replace(/[^a-zA-Z0-9\s-]/g, '')
                 .replace(/\s+/g, '-')
@@ -1231,55 +900,34 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
     }
 
     createMarkdownFilesFromFolder(pages) {
-        console.log(`📂 Creating markdown files for ${pages.length} pages`);
         const files = [];
         const documentGroups = {};
 
-        // Debug: Log all pages and their properties
-        pages.forEach((page, i) => {
-            console.log(`Page ${i + 1}: "${page.title}" from "${page.sourceDocument}" (parentTab: "${page.parentTab}")`);
-        });
-
-        // Group pages by source document
         pages.forEach(page => {
-            if (!page.title || page.title.trim() === '') {
-                console.log('Skipping page with empty title:', page);
-                return;
-            }
+            if (!page.title || page.title.trim() === '') return;
 
             const sourceDoc = page.sourceDocument || 'Unknown Document';
-            console.log(`Grouping page "${page.title}" under source "${sourceDoc}"`);
-            
             if (!documentGroups[sourceDoc]) {
                 documentGroups[sourceDoc] = [];
             }
             documentGroups[sourceDoc].push(page);
         });
 
-        console.log(`📊 Document groups created:`, Object.keys(documentGroups));
-        Object.keys(documentGroups).forEach(docName => {
-            console.log(`  "${docName}": ${documentGroups[docName].length} pages`);
-        });
-
-        // Create files for each document group
         Object.keys(documentGroups).forEach(docName => {
             const docPages = documentGroups[docName];
             
-            // Clean document name for folder structure
             const cleanDocName = docName
                 .replace(/[^a-zA-Z0-9\s-]/g, '')
                 .replace(/\s+/g, '-')
                 .toLowerCase();
 
             docPages.forEach((page, index) => {
-                // Use header name as the main filename, prefixed with document name
                 const cleanTitle = page.title
                     .replace(/[^a-zA-Z0-9\s-]/g, '')
                     .replace(/\s+/g, '-')
                     .toLowerCase();
                 
                 const filename = `${cleanDocName}--${cleanTitle}.md`;
-                console.log(`📄 Creating file: ${filename} for page "${page.title}" from "${docName}"`);
 
                 let content = page.content;
                 content += `\n\n---\n\n*Source: ${docName}*\n`;
@@ -1296,12 +944,9 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
     }
 
     async generateDownload(files) {
-        console.log('Generating download with files:', files.length);
-
         const zip = new JSZip();
 
         files.forEach(file => {
-            console.log(`Adding file to ZIP: ${file.name} (${file.content.length} chars)`);
             zip.file(file.name, file.content);
         });
 
@@ -1325,14 +970,10 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
 
         setTimeout(() => {
             downloadLink.click();
-            console.log('Download triggered');
         }, 1000);
     }
 
-    // Fallback methods (keeping existing HTML parsing for when API is not configured)
     async fetchGoogleDocFallback(docId) {
-        console.log('Fetching doc with ID:', docId);
-
         const urls = [
             `https://docs.google.com/document/d/${docId}/pub`,
             `https://docs.google.com/document/d/${docId}/export?format=txt`
@@ -1340,14 +981,10 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
 
         for (const url of urls) {
             try {
-                console.log('Trying URL:', url);
-
                 const response = await fetch(url);
-                console.log('Response status:', response.status);
 
                 if (response.ok) {
                     const content = await response.text();
-                    console.log('Content length:', content.length);
 
                     if (content && content.length > 100) {
                         if (url.includes('/pub')) {
@@ -1358,7 +995,6 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
                     }
                 }
             } catch (error) {
-                console.log('Fetch error:', error.message);
                 continue;
             }
         }
@@ -1376,7 +1012,6 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
     }
 
     extractStructuredContent(element) {
-        // Simplified fallback - just create one section with all content
         const allText = element.textContent.trim();
         if (allText) {
             return [{
@@ -1389,7 +1024,6 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
     }
 
     parseTextContent(text) {
-        // Simplified fallback - just create one section with all content
         if (text && text.trim()) {
             return [{
                 title: 'Document Content',
@@ -1449,13 +1083,8 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
             this.progressFill.style.width = '0%';
         }, 1000);
     }
-
-    delay(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
 }
 
-// Initialize the converter when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     new DocsToNotionConverter();
 });
