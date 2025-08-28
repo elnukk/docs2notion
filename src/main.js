@@ -1085,6 +1085,43 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
     }
 }
 
+class Router {
+    constructor() {
+        this.init();
+    }
+
+    init() {
+        window.addEventListener('hashchange', () => this.handleRoute());
+        window.addEventListener('load', () => this.handleRoute());
+        
+        document.getElementById('backToMain').addEventListener('click', () => {
+            window.location.hash = '';
+        });
+    }
+
+    handleRoute() {
+        const hash = window.location.hash.substring(1);
+        
+        const sections = document.querySelectorAll('.section');
+        sections.forEach(section => {
+            section.style.display = 'none';
+        });
+
+        if (hash === 'privacy') {
+            document.getElementById('privacy').style.display = 'block';
+            document.querySelector('.hero').style.display = 'none';
+            document.querySelector('.header').style.display = 'block';
+        } else {
+            document.getElementById('converter').style.display = 'block';
+            document.getElementById('how-it-works').style.display = 'block';
+            document.getElementById('features').style.display = 'block';
+            document.querySelector('.hero').style.display = 'block';
+            document.querySelector('.header').style.display = 'block';
+        }
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     new DocsToNotionConverter();
+    new Router();
 });
