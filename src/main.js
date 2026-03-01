@@ -1093,30 +1093,46 @@ class Router {
     init() {
         window.addEventListener('hashchange', () => this.handleRoute());
         window.addEventListener('load', () => this.handleRoute());
-        
-        document.getElementById('backToMain').addEventListener('click', () => {
-            window.location.hash = '';
+
+        // Use direct click handlers instead of relying on anchor hash navigation,
+        // because scroll-behavior:smooth on a display:none target silently skips
+        // the hash update in Safari/some browsers, so hashchange never fires.
+        document.querySelectorAll('a[href="#privacy"]').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.showPrivacy();
+                history.pushState(null, '', '#privacy');
+            });
         });
+
+        document.getElementById('backToMain').addEventListener('click', () => {
+            this.showMain();
+            history.pushState(null, '', ' ');
+        });
+    }
+
+    showPrivacy() {
+        document.querySelectorAll('.section').forEach(s => s.style.display = 'none');
+        document.querySelector('.hero').style.display = 'none';
+        document.getElementById('privacy').style.display = 'block';
+        window.scrollTo(0, 0);
+    }
+
+    showMain() {
+        document.querySelectorAll('.section').forEach(s => s.style.display = 'none');
+        document.getElementById('converter').style.display = 'block';
+        document.getElementById('how-it-works').style.display = 'block';
+        document.getElementById('features').style.display = 'block';
+        document.querySelector('.hero').style.display = 'block';
+        window.scrollTo(0, 0);
     }
 
     handleRoute() {
         const hash = window.location.hash.substring(1);
-        
-        const sections = document.querySelectorAll('.section');
-        sections.forEach(section => {
-            section.style.display = 'none';
-        });
-
         if (hash === 'privacy') {
-            document.getElementById('privacy').style.display = 'block';
-            document.querySelector('.hero').style.display = 'none';
-            document.querySelector('.header').style.display = 'block';
+            this.showPrivacy();
         } else {
-            document.getElementById('converter').style.display = 'block';
-            document.getElementById('how-it-works').style.display = 'block';
-            document.getElementById('features').style.display = 'block';
-            document.querySelector('.hero').style.display = 'block';
-            document.querySelector('.header').style.display = 'block';
+            this.showMain();
         }
     }
 }
