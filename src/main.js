@@ -145,22 +145,7 @@ class DocsToNotionConverter {
         const configDiv = document.createElement('div');
         configDiv.className = 'auth-section';
         configDiv.style.display = 'block';
-        configDiv.innerHTML = `
-            <h4>🔧 Setup Required</h4>
-            <p>To use the Google Docs API, you need to:</p>
-            <ol>
-                <li>Create a project in <a href="https://console.cloud.google.com" target="_blank">Google Cloud Console</a></li>
-                <li>Enable the Google Docs API</li>
-                <li>Create credentials (API Key and OAuth 2.0 Client ID)</li>
-                <li>Add your credentials to a .env file:
-                    <pre style="background: #f5f5f5; padding: 8px; margin: 8px 0; border-radius: 4px; font-size: 0.8rem;">
-VITE_GOOGLE_CLIENT_ID=your_client_id_here
-VITE_GOOGLE_API_KEY=your_api_key_here</pre>
-                </li>
-            </ol>
-            <p style="margin-top: 12px;"><small>For now, the app will fall back to the original HTML parsing method.</small></p>
-        `;
-        
+
         this.status.appendChild(configDiv);
     }
 
@@ -170,20 +155,6 @@ VITE_GOOGLE_API_KEY=your_api_key_here</pre>
         const errorDiv = document.createElement('div');
         errorDiv.className = 'auth-section';
         errorDiv.style.display = 'block';
-        errorDiv.innerHTML = `
-            <h4>🔧 Drive API Setup Required</h4>
-            <p>To use Google Drive folder functionality, you need to enable the Drive API:</p>
-            <ol>
-                <li>Go to <a href="https://console.developers.google.com/apis/api/drive.googleapis.com/overview?project=765380224910" target="_blank">Google Cloud Console - Drive API</a></li>
-                <li>Click <strong>"Enable"</strong> to activate the Google Drive API</li>
-                <li>Wait a few minutes for the changes to propagate</li>
-                <li>Return here and try again</li>
-            </ol>
-            <div style="background: #e7f3ff; padding: 12px; margin: 12px 0; border-radius: 6px; border-left: 4px solid #2196f3;">
-                <strong>Note:</strong> The Google Docs API is already enabled, so single document conversion still works normally.
-            </div>
-            <p style="margin-top: 12px;"><small>Once enabled, you'll be able to process entire Google Drive folders containing multiple documents.</small></p>
-        `;
         
         this.status.innerHTML = '';
         this.status.appendChild(errorDiv);
